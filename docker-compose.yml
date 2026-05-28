@@ -1,0 +1,104 @@
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════
+# Synthetic Media Detector — Docker Compose
+# Services: backend (Java) · ml-service (Python) · mongodb
+# ═══════════════════════════════════════════════════════════
+
+services:
+
+  # ── Spring Boot Backend ──────────────────────────────────
+  backend:
+    build:
+      context: ./backend-java
+      dockerfile: Dockerfile
+    container_name: smd-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=production
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/detector
+      - ML_SERVICE_URL=http://ml-service:8000
+      - JWT_SECRET=${JWT_SECRET:-synthetic-media-detector-super-secret-key-2024-minimum-256-bits}
+      - JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}
+      - SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE=100MB
+      - SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE=100MB
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+    networks:
+      - detector-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1",
+             "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - backend-logs:/app/logs
+
+  # ── FastAPI ML Service ───────────────────────────────────
+  ml-service:
+    build:
+      context: ./ml-service-python
+      dockerfile: Dockerfile
+    container_name: smd-ml-service
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    networks:
+      - detector-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 90s
+    volumes:
+      - ml-temp:/tmp
+
+  # ── MongoDB ──────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: smd-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=detector
+    networks:
+      - detector-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+
+# ── Networks ─────────────────────────────────────────────
+networks:
+  detector-network:
+    driver: bridge
+    name: smd-network
+
+# ── Volumes ──────────────────────────────────────────────
+volumes:
+  mongo-data:
+    name: smd-mongo-data
+  mongo-config:
+    name: smd-mongo-config
+  backend-logs:
+    name: smd-backend-logs
+  ml-temp:
+    name: smd-ml-temp

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Synthetic Media Detector</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <div class="nav-logo">
+      <span class="logo-shield">⬡</span>
+      <span class="logo-text">SynthDetect</span>
+    </div>
+    <div class="nav-links">
+      <a href="#detector" class="nav-link">Detector</a>
+      <a href="#about"    class="nav-link">About</a>
+      <a href="#history"  class="nav-link" id="historyNavLink" style="display:none">History</a>
+    </div>
+    <div class="nav-auth" id="navAuth">
+      <button class="btn-ghost" onclick="openModal('loginModal')">Sign In</button>
+      <button class="btn-primary" onclick="openModal('signupModal')">Get Started</button>
+    </div>
+    <div class="nav-user" id="navUser" style="display:none">
+      <span class="user-badge" id="userBadge"></span>
+      <button class="btn-ghost" onclick="logout()">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<section class="hero" id="home">
+  <div class="hero-bg">
+    <div class="grid-overlay"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge"><span class="badge-dot"></span>AI-Powered Detection Engine</div>
+    <h1 class="hero-title">Unmask the<br/><span class="title-gradient">Synthetic.</span></h1>
+    <p class="hero-subtitle">Military-grade deepfake detection across images, audio, and video. Real-time analysis with forensic-level confidence scoring.</p>
+    <div class="hero-stats">
+      <div class="stat-item"><span class="stat-num">99.2<span class="stat-unit">%</span></span><span class="stat-label">Uptime</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat-item"><span class="stat-num">2.4<span class="stat-unit">s</span></span><span class="stat-label">Avg. Analysis</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat-item"><span class="stat-num">3<span class="stat-unit">+</span></span><span class="stat-label">Modalities</span></div>
+    </div>
+    <div class="hero-cta">
+      <button class="btn-primary btn-lg" onclick="document.getElementById('detector').scrollIntoView({behavior:'smooth'})">Start Analysis <span class="btn-arrow">→</span></button>
+      <button class="btn-ghost btn-lg" onclick="document.getElementById('about').scrollIntoView({behavior:'smooth'})">Learn More</button>
+    </div>
+  </div>
+  <div class="hero-scroll"><span class="scroll-line"></span><span class="scroll-label">scroll</span></div>
+</section>
+
+<section class="detector-section" id="detector">
+  <div class="section-header">
+    <span class="section-tag">// Analysis Engine</span>
+    <h2 class="section-title">Upload &amp; Analyze</h2>
+    <p class="section-sub">Drop any media file for instant forensic analysis</p>
+  </div>
+  <div class="media-tabs">
+    <button class="tab-btn active" data-type="image" onclick="switchTab(this,'image')"><span class="tab-icon">◈</span> Image</button>
+    <button class="tab-btn" data-type="audio" onclick="switchTab(this,'audio')"><span class="tab-icon">◉</span> Audio</button>
+    <button class="tab-btn" data-type="video" onclick="switchTab(this,'video')"><span class="tab-icon">◎</span> Video</button>
+  </div>
+  <div class="upload-wrapper">
+    <div class="upload-zone" id="uploadZone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="triggerFileInput()">
+      <div class="upload-inner" id="uploadInner">
+        <div class="upload-icon-wrap"><div class="upload-icon-ring"></div><span class="upload-icon" id="uploadIcon">⬆</span></div>
+        <p class="upload-title" id="uploadTitle">Drop your file here</p>
+        <p class="upload-sub" id="uploadSub">or <span class="upload-browse">browse files</span></p>
+        <p class="upload-formats" id="uploadFormats">Images: JPG, PNG, GIF, WEBP · Max 100MB</p>
+      </div>
+      <div class="file-selected" id="fileSelected" style="display:none">
+        <div class="file-icon">📄</div>
+        <div class="file-info"><span class="file-name" id="selectedFileName"></span><span class="file-size" id="selectedFileSize"></span></div>
+        <button class="file-remove" onclick="clearFile(event)">✕</button>
+      </div>
+    </div>
+    <input type="file" id="fileInput" hidden onchange="handleFileSelect(event)" />
+    <button class="btn-primary btn-analyze" id="analyzeBtn" onclick="startAnalysis()" disabled>
+      <span class="btn-text">Run Analysis</span><span class="btn-glow"></span>
+    </button>
+  </div>
+
+  <div class="progress-panel" id="progressPanel" style="display:none">
+    <div class="progress-header">
+      <span class="progress-status" id="progressStatus">Initializing...</span>
+      <span class="progress-pct" id="progressPct">0%</span>
+    </div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill"></div></div>
+    <div class="progress-steps" id="progressSteps">
+      <div class="step" id="step1"><span class="step-dot"></span>File Received</div>
+      <div class="step" id="step2"><span class="step-dot"></span>ML Analysis</div>
+      <div class="step" id="step3"><span class="step-dot"></span>Saving Results</div>
+      <div class="step" id="step4"><span class="step-dot"></span>Complete</div>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel" style="display:none">
+    <div class="verdict-banner" id="verdictBanner">
+      <div class="verdict-left">
+        <span class="verdict-icon" id="verdictIcon"></span>
+        <div><h3 class="verdict-label" id="verdictLabel"></h3><p class="verdict-desc" id="verdictDesc"></p></div>
+      </div>
+      <div class="verdict-right">
+        <div class="gauge-wrap">
+          <svg class="gauge-svg" viewBox="0 0 120 120">
+            <circle class="gauge-bg" cx="60" cy="60" r="50"/>
+            <circle class="gauge-fill" id="gaugeFill" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"/>
+            <text class="gauge-text" id="gaugeText" x="60" y="60" text-anchor="middle" dominant-baseline="central">0%</text>
+          </svg>
+          <span class="gauge-label">Confidence</span>
+        </div>
+      </div>
+    </div>
+    <div class="breakdown-grid">
+      <div class="breakdown-card"><span class="breakdown-label">Real Probability</span><div class="bar-track"><div class="bar-fill bar-real" id="realBar"></div></div><span class="breakdown-value" id="realVal">—</span></div>
+      <div class="breakdown-card"><span class="breakdown-label">Fake Probability</span><div class="bar-track"><div class="bar-fill bar-fake" id="fakeBar"></div></div><span class="breakdown-value" id="fakeVal">—</span></div>
+      <div class="breakdown-card"><span class="breakdown-label">Processing Time</span><div class="bar-track"><div class="bar-fill bar-cyan" style="width:60%"></div></div><span class="breakdown-value" id="procTime">—</span></div>
+    </div>
+    <div class="params-table">
+      <div class="params-header"><span>Analysis Parameter</span><span>Status</span><span>Score</span></div>
+      <div class="params-body" id="paramsBody"></div>
+    </div>
+    <div class="export-row">
+      <button class="btn-export btn-pdf" id="downloadPdfBtn" onclick="downloadPDF()">⬇ Download PDF Report</button>
+      <button class="btn-export btn-json" onclick="exportJSON()">⬇ Export Raw JSON</button>
+      <button class="btn-ghost btn-sm" onclick="resetAnalysis()">↺ Re-analyze</button>
+    </div>
+  </div>
+</section>
+
+<section class="about-section" id="about">
+  <div class="section-header">
+    <span class="section-tag">// Technology</span>
+    <h2 class="section-title">How It Works</h2>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card"><div class="feature-icon">◈</div><h3 class="feature-title">ELA Analysis</h3><p class="feature-desc">Error Level Analysis detects pixel-level manipulation by comparing JPEG compression artifacts across image regions.</p></div>
+    <div class="feature-card"><div class="feature-icon">◉</div><h3 class="feature-title">MFCC Fingerprinting</h3><p class="feature-desc">Mel-Frequency Cepstral Coefficients expose synthetic voice patterns invisible to human hearing.</p></div>
+    <div class="feature-card"><div class="feature-icon">◎</div><h3 class="feature-title">Temporal Coherence</h3><p class="feature-desc">Frame-by-frame consistency analysis catches deepfake artifacts that manifest as temporal discontinuities in video.</p></div>
+    <div class="feature-card"><div class="feature-icon">⬡</div><h3 class="feature-title">Async Processing</h3><p class="feature-desc">WebSocket-powered real-time feedback keeps you informed at every step without blocking your workflow.</p></div>
+  </div>
+</section>
+
+<section class="history-section" id="history" style="display:none">
+  <div class="section-header">
+    <span class="section-tag">// Dashboard</span>
+    <h2 class="section-title">Scan History</h2>
+  </div>
+  <div class="history-stats" id="historyStats"></div>
+  <div class="history-table-wrap">
+    <div class="history-table-header">
+      <span>File</span><span>Type</span><span>Verdict</span><span>Confidence</span><span>Date</span><span>Report</span>
+    </div>
+    <div class="history-table-body" id="historyBody">
+      <div class="history-empty">No scans yet. Upload a file to get started.</div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-logo"><span class="logo-shield">⬡</span><span class="logo-text">SynthDetect</span></div>
+    <p class="footer-copy">© 2024 Synthetic Media Detector · Built by Harshit Singh</p>
+    <p class="footer-tagline">Fighting misinformation, one detection at a time.</p>
+  </div>
+</footer>
+
+<!-- Login Modal -->
+<div class="modal-overlay" id="loginModal" onclick="closeModalOutside(event,'loginModal')">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
+    <div class="modal-logo">⬡</div>
+    <h2 class="modal-title">Welcome back</h2>
+    <p class="modal-sub">Sign in to your account</p>
+    <div class="form-group"><label class="form-label">Username</label><input class="form-input" id="loginUsername" type="text" placeholder="your_username" /></div>
+    <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="loginPassword" type="password" placeholder="••••••••" /></div>
+    <div class="form-error" id="loginError"></div>
+    <button class="btn-primary btn-full" onclick="login()">Sign In</button>
+    <p class="modal-switch">Don't have an account? <span onclick="switchModal('loginModal','signupModal')">Sign up</span></p>
+  </div>
+</div>
+
+<!-- Signup Modal -->
+<div class="modal-overlay" id="signupModal" onclick="closeModalOutside(event,'signupModal')">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('signupModal')">✕</button>
+    <div class="modal-logo">⬡</div>
+    <h2 class="modal-title">Create account</h2>
+    <p class="modal-sub">Start detecting synthetic media</p>
+    <div class="form-group"><label class="form-label">Username</label><input class="form-input" id="signupUsername" type="text" placeholder="your_username" /></div>
+    <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="signupEmail" type="email" placeholder="you@example.com" /></div>
+    <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="signupPassword" type="password" placeholder="••••••••" /></div>
+    <div class="form-error" id="signupError"></div>
+    <button class="btn-primary btn-full" onclick="register()">Create Account</button>
+    <p class="modal-switch">Already have an account? <span onclick="switchModal('signupModal','loginModal')">Sign in</span></p>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
